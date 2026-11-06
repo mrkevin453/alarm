@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alarms</title>
+<style>
+:root{--bg:#f3f3f3;--card:#fff;--ink:#1b1b1b;--mute:#8a8a8a;--chip:#c9c9c9;--line:#e4e4e4;--accent:#0067c0;--on-accent:#fff;--danger:#c42b1c;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#202020;--card:#2b2b2b;--ink:#f3f3f3;--mute:#9b9b9b;--chip:#4a4a4a;--line:#3a3a3a;--accent:#4cc2ff;--on-accent:#000;--danger:#ff99a4}}
+:root[data-theme="dark"]{--bg:#202020;--card:#2b2b2b;--ink:#f3f3f3;--mute:#9b9b9b;--chip:#4a4a4a;--line:#3a3a3a;--accent:#4cc2ff;--on-accent:#000;--danger:#ff99a4}
+html{color-scheme:light dark;scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;min-height:100vh}
+main{max-width:900px;margin:0 auto;padding:20px 16px 100px}
+h1{font-size:28px;font-weight:600;margin:8px 4px 18px}
+#list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;cursor:pointer;position:relative}
+.card:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.time{font-size:52px;font-weight:300;line-height:1;color:var(--ink)}
+.time small{font-size:15px;font-weight:600;margin-left:6px;color:var(--mute)}
+.card.off .time,.card.off .name{color:var(--mute)}
+.next{font-size:12px;color:var(--mute);margin:8px 0 12px}
+.name{font-size:17px;margin-bottom:10px}
+.days{display:flex;gap:6px;flex-wrap:wrap}
+.d{width:24px;height:24px;border-radius:50%;background:var(--chip);color:#fff;font-size:10px;display:grid;place-items:center}
+.d.on{background:var(--accent);color:var(--on-accent)}
+.tg{position:absolute;top:14px;right:14px}
+.sw{width:40px;height:20px;border-radius:10px;border:1px solid var(--mute);background:transparent;position:relative;cursor:pointer;padding:0}
+.sw::after{content:"";position:absolute;top:3px;left:4px;width:12px;height:12px;border-radius:50%;background:var(--mute);transition:transform .15s,background .15s}
+.sw[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.sw[aria-checked="true"]::after{transform:translateX(18px);background:var(--on-accent)}
+#add{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);font-size:28px;cursor:pointer;box-shadow:0 2px 10px #0004}
+.empty{color:var(--mute);padding:40px 4px}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);padding:20px;width:min(380px,92vw)}
+dialog::backdrop{background:#0006}
+dialog h2{margin:0 0 14px;font-size:20px;font-weight:600}
+label{display:block;font-size:13px;color:var(--mute);margin:12px 0 4px}
+input[type=time],input[type=text]{width:100%;font:inherit;font-size:18px;padding:8px 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:6px 10px;border-radius:16px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.hint{font-size:12px;color:var(--mute);margin-top:6px}
+.setrow{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:15px}
+.btns{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
+.btn{font:inherit;padding:8px 18px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.btn.p{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.x{color:var(--danger);margin-right:auto}
+#ring{text-align:center}
+#ring .time{font-size:64px}
+#note{font-size:12px;color:var(--mute);margin-top:18px;padding:0 4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Alarms</h1>
+  <div id="list"></div>
+  <p id="note">Alarms ring only while this tab is open. Keep it open in the background and turn your sound on.</p>
+</main>
+<button id="add" aria-label="Add alarm">+</button>
+
+<dialog id="ed">
+  <h2 id="edt">New alarm</h2>
+  <label for="t">Time</label>
+  <input type="time" id="t" value="07:00">
+  <label for="n">Name</label>
+  <input type="text" id="n" placeholder="Alarm" maxlength="40">
+  <label>Repeat</label>
+  <div class="row" id="rep"></div>
+  <div class="hint">No days selected means it rings once.</div>
+  <div class="setrow"><span>Set this alarm</span><button class="sw" id="on" role="switch" aria-checked="true" aria-label="Alarm on"></button></div>
+  <div class="btns">
+    <button class="btn x" id="del" hidden>Delete</button>
+    <button class="btn" id="cancel">Cancel</button>
+    <button class="btn p" id="save">Save</button>
+  </div>
+</dialog>
+
+<dialog id="ring">
+  <div class="time" id="rt">7:00</div>
+  <h2 id="rn">Alarm</h2>
+  <div class="btns" style="justify-content:center">
+    <button class="btn" id="snooze">Snooze 10 min</button>
+    <button class="btn p" id="dismiss">Dismiss</button>
+  </div>
+</dialog>
+
+<script>
+(function(){
+var ORDER=[1,2,3,4,5,6,0], LBL={1:"M",2:"Tu",3:"W",4:"Th",5:"F",6:"Sa",0:"Su"};
+var alarms=[], editing=null, fired={}, snoozes=[], ringing=null, audio=null, beepTimer=null;
+try{alarms=JSON.parse(localStorage.getItem("alarms.v1")||"[]")}catch(e){alarms=[]}
+if(!alarms.length){alarms=[{id:Date.now(),time:"07:00",name:"Good morning",days:[],on:false}]}
+function save(){try{localStorage.setItem("alarms.v1",JSON.stringify(alarms))}catch(e){}}
+var $=function(i){return document.getElementById(i)};
+
+function parts(t){var p=t.split(":"),h=+p[0];return{h12:(h%12)||12,m:p[1],ap:h<12?"AM":"PM"}}
+function nextRing(a){
+  var now=new Date();
+  for(var i=0;i<8;i++){
+    var d=new Date(now);d.setDate(now.getDate()+i);
+    var p=a.time.split(":");d.setHours(+p[0],+p[1],0,0);
+    if(d>now&&(!a.days.length||a.days.indexOf(d.getDay())>-1))return d;
+  }return null;
+}
+function untilText(a){
+  var d=nextRing(a);if(!d)return"";
+  var mins=Math.max(1,Math.round((d-new Date())/60000)),days=Math.floor(mins/1440),h=Math.floor(mins%1440/60),m=mins%60,o=[];
+  if(days)o.push(days+(days>1?" days":" day"));
+  if(h)o.push(h+(h>1?" hours":" hour"));
+  if(m||!o.length)o.push(m+(m>1?" minutes":" minute"));
+  return "in "+o.join(", ");
+}
+function render(){
+  var L=$("list");L.innerHTML="";
+  if(!alarms.length){L.innerHTML='<div class="empty">No alarms yet. Select + to add one.</div>';return}
+  alarms.slice().sort(function(a,b){return a.time<b.time?-1:1}).forEach(function(a){
+    var p=parts(a.time),c=document.createElement("div");
+    c.className="card"+(a.on?"":" off");c.tabIndex=0;
+    c.innerHTML='<div class="time">'+p.h12+":"+p.m+"<small>"+p.ap+'</small></div>'
+      +'<div class="next">'+(a.on?"\uD83D\uDD14 "+untilText(a):"Off")+'</div>'
+      +'<div class="name"></div><div class="days"></div><div class="tg"><button class="sw" role="switch" aria-checked="'+a.on+'" aria-label="Turn alarm on or off"></button></div>';
+    c.querySelector(".name").textContent=a.name||"Alarm";
+    var D=c.querySelector(".days");
+    ORDER.forEach(function(d){var s=document.createElement("span");s.className="d"+(a.days.indexOf(d)>-1?" on":"");s.textContent=LBL[d];D.appendChild(s)});
+    c.querySelector(".sw").onclick=function(e){e.stopPropagation();a.on=!a.on;save();render();if(a.on)primeAudio()};
+    c.onclick=function(){openEd(a)};
+    c.onkeydown=function(e){if(e.key==="Enter")openEd(a)};
+    L.appendChild(c);
+  });
+}
+function openEd(a){
+  editing=a||null;
+  $("edt").textContent=a?"Edit alarm":"New alarm";
+  $("t").value=a?a.time:"07:00";$("n").value=a?a.name:"";
+  $("on").setAttribute("aria-checked",a?a.on:true);
+  $("del").hidden=!a;
+  var days=a?a.days:[];
+  $("rep").innerHTML="";
+  ORDER.forEach(function(d){var b=document.createElement("button");b.type="button";b.className="chip";b.textContent=LBL[d];b.dataset.d=d;b.setAttribute("aria-pressed",days.indexOf(d)>-1);b.onclick=function(){b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")!=="true")};$("rep").appendChild(b)});
+  $("ed").showModal();
+}
+$("add").onclick=function(){openEd(null);primeAudio()};
+$("on").onclick=function(){this.setAttribute("aria-checked",this.getAttribute("aria-checked")!=="true")};
+$("cancel").onclick=function(){$("ed").close()};
+$("del").onclick=function(){alarms=alarms.filter(function(x){return x!==editing});save();render();$("ed").close()};
+$("save").onclick=function(){
+  var days=[].slice.call($("rep").children).filter(function(b){return b.getAttribute("aria-pressed")==="true"}).map(function(b){return+b.dataset.d});
+  var data={time:$("t").value||"07:00",name:$("n").value.trim(),days:days,on:$("on").getAttribute("aria-checked")==="true"};
+  if(editing)Object.assign(editing,data);else alarms.push(Object.assign({id:Date.now()},data));
+  save();render();$("ed").close();
+  if("Notification"in window&&Notification.permission==="default"){try{Notification.requestPermission()}catch(e){}}
+};
+
+function primeAudio(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==="suspended")audio.resume()}catch(e){}}
+function beep(){
+  if(!audio)return;
+  [0,.25,.5].forEach(function(o){
+    var os=audio.createOscillator(),g=audio.createGain();os.type="sine";os.frequency.value=880;
+    g.gain.setValueAtTime(.0001,audio.currentTime+o);g.gain.exponentialRampToValueAtTime(.3,audio.currentTime+o+.02);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+o+.2);
+    os.connect(g);g.connect(audio.destination);os.start(audio.currentTime+o);os.stop(audio.currentTime+o+.22);
+  });
+}
+function ring(a,t){
+  ringing=a;var p=parts(t);
+  $("rt").textContent=p.h12+":"+p.m+" "+p.ap;$("rn").textContent=a.name||"Alarm";
+  if(!$("ring").open)$("ring").showModal();
+  primeAudio();beep();clearInterval(beepTimer);beepTimer=setInterval(beep,1500);
+  document.title="\u23F0 "+(a.name||"Alarm");
+  if("Notification"in window&&Notification.permission==="granted"){try{new Notification(a.name||"Alarm",{body:p.h12+":"+p.m+" "+p.ap})}catch(e){}}
+}
+function stopRing(){clearInterval(beepTimer);document.title="Alarms";if($("ring").open)$("ring").close()}
+$("dismiss").onclick=function(){stopRing();ringing=null};
+$("snooze").onclick=function(){
+  stopRing();
+  if(ringing)snoozes.push({a:ringing,at:Date.now()+10*60000});
+  ringing=null;
+};
+function pad(n){return(n<10?"0":"")+n}
+function tick(){
+  var now=new Date(),hm=pad(now.getHours())+":"+pad(now.getMinutes()),day=now.toDateString();
+  alarms.forEach(function(a){
+    if(!a.on||a.time!==hm)return;
+    if(a.days.length&&a.days.indexOf(now.getDay())<0)return;
+    var k=a.id+day+hm;if(fired[k])return;fired[k]=1;
+    ring(a,a.time);
+    if(!a.days.length){a.on=false;save();render()}
+  });
+  snoozes=snoozes.filter(function(s){if(Date.now()>=s.at){ring(s.a,s.a.time);return false}return true});
+}
+setInterval(tick,1000);
+setInterval(function(){if(!$("ed").open)render()},30000);
+document.addEventListener("click",primeAudio,{once:true});
+render();
+})();
+</script>
+</body>
+</html>
